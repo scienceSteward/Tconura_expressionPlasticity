@@ -118,5 +118,4 @@ cd $EXPR_home
 sbatch $EXPR_home/Scripts/salmon_map_quant_ISF_parallelScript_run.sh
 ```
 
-# pull mapping rate from logs
 
