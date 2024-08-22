@@ -1,4 +1,19 @@
 # process braker
+
+## Adjust annotation with lower intron inclusion cutoff:
+```
+/opt/TSEBRA/bin/tsebra.py --gtf braker/transcripts_merged.gtf,braker/Tcon_braker3_1/GeneMark-ETP/genemark.gtf \
+    --keep_gtf braker/Tcon_braker3_1/GeneMark-ETP/training.gtf \
+    --hintfiles braker/Tcon_braker3_1/hintsfile.gff \
+    --filter_single_exon_genes \
+    --cfg braker/tsebra/Tcon_tsebra.cfg \
+    --out braker/Tcon_braker3_1/braker.adj.gtf \
+    -q 2>braker/Tcon_braker3_1/errors/tsebra.lo_intron.stderr
+```
+## Add UTRs with `intervaltree/stringtie2utr.py`
+
+## Compare annotations
+
 | Annotation        | Details |
 | ------------- |:-------------:| 
 | braker.gtf      | default braker output | 
@@ -6,21 +21,25 @@
 | braker.adj.UTR.gtf | UTRs added with intervaltree/stringtie2utr.py      |  
 
 ## Get statistics
+```
 agat_sp_statistics.pl --gff braker.gtf --output braker.statistics.txt
 agat_sp_statistics.pl --gff braker.adj.gtf --output braker.adj.statistics.txt
 agat_sp_statistics.pl --gff braker.adj.UTR.gtf --output braker.adj.UTR.statistics.txt
-
+```
 ## Run busco
-sbatch braker3_busco.sh braker.adj.aa
+`sbatch braker3_busco.sh braker.adj.aa`
 
 ## Modify for downstream analyses 
+```
 awk '($3 != "gene" && $3 != "transcript" )'  braker.adj.UTR.gtf > braker.adj.UTR.mod.gtf 
 awk '($3 != "gene" && $3 != "transcript" )'  braker.adj.gtf > braker.adj.mod.gtf 
+```
 
 ## Keep longest isoform
-agat_sp_keep_longest_isoform.pl --gff braker.adj.UTR.mod.gtf --output braker.adj.UTR.mod.longIso.gff
+`agat_sp_keep_longest_isoform.pl --gff braker.adj.UTR.mod.gtf --output braker.adj.UTR.mod.longIso.gff`
 
 ## extract amino acid sequences for longest isoform
+```
 genome_path=$mydir/repeats_Tconura/repeatmasker
 genome=pt_042_hifiasm20201214.primary.UPPER.fasta.softmasked
 
@@ -30,5 +49,5 @@ prot_outfile=braker.adj.UTR.mod.longIso.aa
 gffread "$gff_file" -g "$genome_path/$genome" -J -w "$cds_outfile" -y "$prot_outfile"
 
 cat $prot_outfile | sed 's/.*gene=/>/' | awk '/^>/ {printf("\n%s\n",$0);next; } { printf("%s",$0);}  END {printf("\n");}' > ${prot_outfile%.aa}_2line.aa
-
+```
 
