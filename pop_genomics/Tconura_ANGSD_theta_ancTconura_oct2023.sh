@@ -1,19 +1,20 @@
 #!/bin/bash
-#SBATCH -A naiss2023-5-41
+#SBATCH -A [redacted]
 #SBATCH -p node
 #SBATCH -n 1
 #SBATCH -t 2-00:00:00
-#SBATCH --mail-user=rachel.steward@biol.lu.se
+#SBATCH --mail-user=[redacted]
 #SBATCH --mail-type=ALL
 #SBATCH -e results/07_theta_oct2023/theta_popList_ancTconura_oct2023.err
 #SBATCH -J theta_popList_ancTconura_oct2023
-#SBATCH -D /proj/snic2021-6-323/Projects/Tconura/working/Rachel/popgen_Tconura
+#SBATCH -D Rachel/popgen_Tconura
 
 module load bioinfo-tools 
 
-TOOL_PATH=/proj/snic2020-6-222/bin/angsd
-IN_PATH=/crex/proj/snic2020-6-222/Projects/Tconura/working/zach/Oct2023redo/results/safs
-OUT_PATH=/proj/snic2021-6-323/Projects/Tconura/working/Rachel/popgen_Tconura/results
+WRK_dir=[redacted]
+TOOL_PATH=/path/to/angsd
+IN_PATH=$WRK_dir/zach/Oct2023redo/results/safs
+OUT_PATH=$WRK_dir/Rachel/popgen_Tconura/results
 
 SFS_OUT=$OUT_PATH/01_sfs_oct2023/Sfs1d
 mkdir -p $SFS_OUT
@@ -43,5 +44,6 @@ $TOOL_PATH/misc/thetaStat do_stat $THETA_OUT/${pop1}.thetas.idx \
 
 done < $1
 
-# Tconura_ANGSD_theta_ancTconura_oct2023.sh
+# sbatch Tconura_ANGSD_theta_ancTconura_oct2023.sh inputFile
+# input file is a list of populations
 
