@@ -10,7 +10,7 @@
     --out braker/Tcon_braker3_1/braker.adj.gtf \
     -q 2>braker/Tcon_braker3_1/errors/tsebra.lo_intron.stderr
 ```
-## Add UTRs with `intervaltree/stringtie2utr.py`
+## Add UTRs with `decorate_braker.sh`
 
 ## Compare annotations
 
