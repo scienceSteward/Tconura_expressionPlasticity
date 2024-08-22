@@ -1,0 +1,703 @@
+---
+title: "Host Shift Gene Expression -- Plots"
+author: "Rachel Steward"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(targets)
+library(ggpubr)
+library(ggpp)
+library(tidyverse)
+library(gridExtra)
+library(ComplexHeatmap)
+ms_dir <- "~/Library/CloudStorage/OneDrive-Personal/Documents/Lund_Postdoc/Tconura/MS2_hostUsePlasticity_MolEcol/"
+`%nin%` <- Negate(`%in%`)
+
+```
+
+
+The following script uses output from the targets pipeline to generate main and supplementary figures for the manuscript "Evolved and plastic gene expression in adaptation to a novel niche". 
+
+# Main text 
+
+## Figure 1 
+
+```{r, fig.height = 2.75, fig.width = 2.75}
+figure1_panelF <- tar_read(tcon_pca_plotlist)[[1]]
+figure1_panelF
+ggsave(plot = figure1_panelF,             
+       filename = paste0(ms_dir, "draft_fig1_pca.pdf"),
+       height = 2.75, width = 2.75) 
+
+```
+
+## Figure 2
+
+```{r, fig.height=8, fig.width=8}
+fig2_panel <- ggpubr::ggarrange(
+  ggpubr::ggarrange(
+    tar_read(tcon_deseq_volc_plot)[[1]], 
+    tar_read(tcon_deseq_volc_plot)[[3]], 
+    nrow = 1,ncol = 2 ,
+    align = "h", labels = "AUTO", widths = c(1, 1)),
+  ggpubr::ggarrange(
+    tar_read(HH_OO_vs_H_O_scatter) +
+      xlim(c(-10,10))+
+      theme(legend.position = c(0.01,0.99), 
+            legend.justification = c("left", "top"),
+            legend.margin = margin(1,1,1,1),
+            legend.text = element_text(size = 7),
+            legend.title = element_blank()), 
+    tar_read(tcon_topgo_plots_HH_OO_vs_H_O_both)[[1]], 
+    nrow = 1, ncol = 2, align = "h", labels = c("C", "D"), widths = c(1, 1)),
+  nrow = 2)
+
+fig2_panel
+
+ggplot2::ggsave(plot = fig2_panel,
+                filename = paste0(ms_dir, "draft_fig2_hostrace_DGE.pdf"), 
+                width = 8, height = 8)
+
+```
+
+## Figure 3
+
+### Panel A
+
+Highly correlated values (r > 0.5, p < 0.01) were converted to bold text and color bar labels were modified, and color bars weree moved to the top of their associated column using Inkscape. 
+
+```{r}
+ht_list = tar_read(ht_host) +
+  tar_read(ht_stress) +
+  tar_read(ht_plasticity) +
+  tar_read(ht_CH_plasticity) +
+  tar_read(ht_CO_plasticity)
+
+ draw(ht_list,  row_km = 1, cluster_rows = TRUE, show_row_dend = FALSE)
+ 
+fig3_panelA <- grid::grid.grabExpr(
+  draw(ht_list,  row_km = 1, cluster_rows = TRUE, show_row_dend = FALSE))
+
+ggsave(fig3_panelA, 
+       filename = paste0(ms_dir, "draft_fig3A_modules_expr.pdf"), 
+       height = 3.75, width = 6)
+```
+
+### Panel B
+
+```{r}
+tar_read(moduleEigengenes_plots)[tar_read(targetMods)][[4]]
+
+fig3_panelB <- annotate_figure(
+  
+  ggarrange(plotlist = tar_read(moduleEigengenes_plots)[tar_read(targetMods)], 
+    nrow = 3,
+    ncol = 3, 
+    common.legend = T, 
+    legend = "right"),
+  bottom = text_grob("Treatment"), 
+  left = text_grob("Eigengene expression", rot = 90))
+
+# fig3_panelB
+
+```
+
+
+### Full panel 
+
+```{r}
+fig3_panel <- ggpubr::ggarrange(
+  annotate_figure( ggplot() + theme_void(), # leave space for panel A, added in Inkscape          
+                   left = text_grob("Modules", rot = 90)), 
+  fig3_panelB, 
+  ncol = 2, widths = c(1, 1.25), labels = "AUTO")
+ggplot2::ggsave(plot = fig3_panel, 
+                filename = paste0(ms_dir, "draft_fig3_modules_expr.pdf"), 
+                width = 11, height = 5)
+```
+
+
+## Figure 4
+
+### Rug plot for 4E
+
+```{r}
+rug_df <- tar_read(H_vs_O_locs) %>% 
+  full_join(tar_read(HH_vs_OO_locs) ) 
+
+rug_df_geneIDs <- (rug_df %>% dplyr::select(comp, geneID) %>% unique())$geneID
+rug_df_dups <- rug_df_geneIDs[duplicated(rug_df_geneIDs )]
+
+rug_df <- rug_df %>% 
+  mutate(DE = if_else(geneID %in% rug_df_dups, "both", DE)) %>% 
+  full_join(tar_read(HH_vs_HO_locs)) %>% 
+  full_join(tar_read(OO_vs_OH_locs))
+
+rug <-  rug_df %>% 
+  ggplot() + 
+  geom_tile(aes(x = contig_midPos_continuous, y = forcats::fct_rev(comp), 
+                color = DE == "both", fill = DE == "both")) + 
+  scale_color_manual(values = c("black", "gold2"), guide = "none") +
+  scale_fill_manual(values = c("black", "gold2"), guide = "none") +
+  # scale_y_discrete(breaks = c("H vs O", "HH vs OO", "HH vs HO", "OO vs OH")) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank()) +     
+  scale_x_continuous( expand = c(0, 0))
+```
+
+### Panels A-E
+
+```{r}
+Figure4_A_E_panel <- annotate_figure(
+  ggarrange(tar_read(fst_plot_list)[[1]] + 
+                              theme(axis.title.x = element_blank()), 
+                            tar_read(dxy_plot_list)[[1]] +
+                              theme(axis.title.x = element_blank()),
+                            tar_read(pi_plot_diff_list) + 
+                              theme(axis.title.x = element_blank()), 
+                            tar_read(tajD_plot_diff_list) + 
+                              theme(axis.title.x = element_blank()), 
+                            rug, heights = c(1,1,1,1,0.75),
+                            ncol = 1, labels = "AUTO", align = "hv"),
+                  bottom = ggpubr::text_grob("SNP position"))
+```
+
+### Panel F
+
+```{r}
+
+fig4_panelF_upset <- grid::grid.grabExpr(tar_read(outlier_upset_plot))
+
+```
+
+### Panel G
+Non-zero numbers were recolored in white with Inkscape. 
+
+```{r}
+outlier_df <- tar_read(outlier_genes_comb_list)[1:4] %>% 
+   purrr::reduce(full_join) %>% 
+   dplyr::select(geneID) %>% 
+   unique()
+
+fit_list <-  eulerr::venn( list(`Up in H` = tar_read(tcon_deseq_results)$down$H_vs_O$geneID, 
+                                  `Up in O` = tar_read(tcon_deseq_results)$up$H_vs_O$geneID, 
+                                  `Up in HH` = tar_read(tcon_deseq_results)$down$HH_vs_OO$geneID, 
+                                  `Up in OO` = tar_read(tcon_deseq_results)$up$HH_vs_OO$geneID, 
+                                  Outliers = outlier_df$geneID)
+                            )
+ 
+pal <- scales::alpha(tar_read(cf_pal), alpha = 0.75)
+outlier_pal <- scales::alpha("black", alpha = 0.5)
+
+fig4_panelG_venn <- plot(fit_list,
+      quantities = TRUE,
+      fill = c(pal[c(1,4,2,5)], outlier_pal))
+```
+
+### Full panel
+ 
+```{r, fig.height = 6, fig.width = 12}
+figure4_panel <- ggarrange(Figure4_A_E_panel,
+          ggarrange(grid::grid.grabExpr(draw(tar_read(outlier_upset_plot))),
+                    fig4_panelG_venn, ncol = 1,
+                    labels = c("F", "G")), 
+          ncol = 2, widths = c(2,1)) 
+figure4_panel
+ggplot2::ggsave(figure4_panel, 
+                filename = paste0(ms_dir, "draft_fig4_deg_popgen_overlap.pdf"), 
+                height = 6, width = 12)
+```
+
+
+
+### Fig 4 mod
+
+```{r}
+rug_df <- tar_read(H_vs_O_locs) %>% 
+  full_join(tar_read(HH_vs_OO_locs) ) 
+
+rug_df_geneIDs <- (rug_df %>% dplyr::select(comp, geneID) %>% unique())$geneID
+rug_df_dups <- rug_df_geneIDs[duplicated(rug_df_geneIDs )]
+
+rug_df <- rug_df %>% 
+  mutate(DE = if_else(geneID %in% rug_df_dups, "both", DE)) %>% 
+  full_join(tar_read(mod17_locs) %>% mutate(comp = "mod17"))
+
+rug <-  rug_df %>% 
+  ggplot() + 
+  geom_tile(aes(x = contig_midPos_continuous, y = forcats::fct_rev(comp), 
+                color = DE == "both", fill = DE == "both")) + 
+  scale_color_manual(values = c("black", "gold2"), guide = "none") +
+  scale_fill_manual(values = c("black", "gold2"), guide = "none") +
+  # scale_y_discrete(breaks = c("H vs O", "HH vs OO", "HH vs HO", "OO vs OH")) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.title = element_blank()) +     
+  scale_x_continuous( expand = c(0, 0))
+```
+
+### Panels A-E
+
+```{r}
+Figure4_mod_panel <- annotate_figure(
+  ggarrange(tar_read(fst_plot_list)[[1]] + 
+              theme(axis.title.x = element_blank()), 
+            tar_read(dxy_plot_list)[[1]] +
+                              theme(axis.title.x = element_blank()),
+            rug, heights = c(1, 1, 0.5),
+            ncol = 1, align = "hv"),
+  bottom = ggpubr::text_grob("SNP position"))
+
+ggplot2::ggsave(Figure4_mod_panel, 
+                filename = "../../../../Travel_and_Conferences/Oikos_2024/draft_fig4_modifiedForOikos.pdf", 
+                height = 5, width = 12)
+```
+
+# Supplementary figures
+
+
+## Figure S2
+
+```{r}
+figS2 <- tar_read(mapRates_plot)
+figS2
+ggplot2::ggsave(plot = figS2, 
+                filename = paste0(ms_dir, "draft_figS2_quantRates.pdf"), 
+                width = 4, height = 4, dpi = 300)
+```
+
+## Figure S4
+
+```{r}
+
+figS4_panel <- ggpubr::ggarrange(
+  tar_read(tcon_pca_var_plot), 
+  tar_read(tcon_pca_plotlist)[[2]], 
+  tar_read(tcon_pca_plotlist)[[3]], 
+  tar_read(tcon_pca_plotlist)[[4]], 
+  ncol = 4 , align = "h", labels = "AUTO", widths = c(1.5,1,1,1))
+
+ggplot2::ggsave(plot = figS4_panel, 
+                filename = paste0(ms_dir, "draft_figS4_pca_1_6.png"), 
+                 width = 13.5, height = 3, dpi = 300)
+```
+
+## Figure S5
+
+```{r}
+plot_dendro <- function(dat, datTraits, pal) {
+  # adjust the palette
+      pal_75 <- scales::alpha(pal, 0.75)
+
+  # cluster samples
+  sampleTree2 = hclust(dist(t(dat)), method = "average")
+  
+  # Form a data frame analogous to expression data that will hold the traits.
+  traitColors = data.frame(
+    Condition = pal_75[as.numeric(datTraits$Treatment)],
+    `Host race` = pal_75[c(1,4)][as.numeric(as.factor(datTraits$Host_form))])
+  
+  plot <- WGCNA::plotDendroAndColors(sampleTree2, traitColors,
+                                     groupLabels = c("Condition", "Host race"),
+                                     main = "Sample dendrogram and trait heatmap")
+  print_plots <- function(x) { 
+    plts <- grepl("\\.plt", names(x))
+  }
+  print_plots(plot)
+}
+
+pdf(paste0(ms_dir, "draft_figS5_sampleDendro.pdf"), height = 3.5, width = 8)
+plot_dendro(tar_read(scaledata), 
+            tar_read(datTraits), 
+            tar_read(cf_pal))
+dev.off()
+
+```
+## Figure S6
+
+Create the insets for "adaptive plasticity" genes. 
+
+```{r}
+Tcon_g9682_exp <- tibble(
+  x = Inf, y = Inf, 
+  plot = list(
+    data.frame(
+      Sample = names(
+        tar_read(tcon_rlog)[rownames(tar_read(tcon_rlog)) == "Tcon_g9682",]),
+      Tcon_g9682 = unname(
+        tar_read(tcon_rlog)[rownames(tar_read(tcon_rlog)) == "Tcon_g9682",] )) %>% 
+      left_join(tar_read(cf_samples)) %>%
+      ggplot(aes(x = Treatment, y = Tcon_g9682)) +
+      annotate("text", label = "RARS", x = -Inf, y = Inf, 
+               hjust = -0.05, vjust = 1.05, size = 2.5) +
+      geom_point(aes(fill = Treatment, shape = Host_form), alpha = 0.75) + 
+      geom_boxplot(fill = NA, width = 0.5, outlier.shape = NA) +
+      scale_fill_manual(values = tar_read(cf_pal), guide = "none") +
+      scale_shape_manual(values = c(22,21), guide = "none") +
+      labs(x = "Treatment", y = "Norm. expr.") +
+      scale_y_continuous(breaks = c(4,5, 6, 7, 8)) + 
+      theme_bw(base_size = 8) + 
+      theme(panel.grid = element_blank(), 
+            axis.title.x = element_blank())))
+
+Tcon_g14248_exp <- tibble(
+  x = Inf, y = Inf, 
+  plot = list(
+    data.frame(
+      Sample = names(
+        tar_read(tcon_rlog)[rownames(tar_read(tcon_rlog)) == "Tcon_g14248",]),
+      Tcon_g14248 = unname(
+        tar_read(tcon_rlog)[rownames(tar_read(tcon_rlog)) == "Tcon_g14248",] )) %>% 
+      left_join(tar_read(cf_samples)) %>%
+      ggplot(aes(x = Treatment, y = Tcon_g14248)) +
+      annotate("text", label = "TRAPPC5", x = -Inf, y = Inf, 
+               hjust = -0.05, vjust = 1.05, size = 2.5) +
+      geom_point(aes(fill = Treatment, shape = Host_form), alpha = 0.75) + 
+      geom_boxplot(fill = NA, width = 0.5, outlier.shape = NA) +
+      scale_fill_manual(values = tar_read(cf_pal), guide = "none") +
+      scale_shape_manual(values = c(22,21), guide = "none") +
+      labs(x = "Treatment", y = "Norm. expr.") +
+      scale_y_continuous(breaks = c(4,5, 6, 7, 8), limits = c(6.5, 8)) + 
+      theme_bw(base_size = 8) +
+      theme(panel.grid = element_blank(), 
+            axis.title.x = element_blank())))
+```
+
+Assemble figure panel. 
+
+```{r,  fig.width = 10, fig.height = 4 }
+figS6_panel <- ggpubr::ggarrange(
+  ggpubr::ggarrange(tar_read(tcon_deseq_volc_plot)$HH_vs_HO +
+                      theme(plot.title = element_blank()),
+                    tar_read(tcon_deseq_volc_plot)$OO_vs_OH + 
+                      theme(plot.title = element_blank()),
+                    ncol = 1, nrow = 2, labels = "AUTO"), 
+  tar_read(HH_HO_vs_HH_OO_scatter) +
+    geom_plot(data = Tcon_g9682_exp, aes(x = x, y = y, label = plot),
+              vp.width = 0.4, vp.height = 0.4, vjust = 1) +
+    theme(legend.position = c(0.01,0.99), 
+          legend.justification = c("left", "top"),
+          legend.margin = margin(1,1,1,1),
+          legend.text = element_text(size = 7),
+          legend.title = element_blank()) , 
+  tar_read(OO_OH_vs_OO_HH_scatter) +
+    geom_plot(data = Tcon_g14248_exp, aes(x = x, y = y, label = plot),
+              vp.width = 0.4, vp.height = 0.4, vjust = 1) +
+    labs(x = expression("OO vs HH"~log[2](fold~change)))+
+    theme(legend.position = c(0.01,0.99), 
+          legend.justification = c("left", "top"),
+          legend.margin = margin(1,1,1,1),
+          legend.text = element_text(size = 7),
+          legend.title = element_blank()), 
+  nrow = 1,ncol = 3 , labels = c(NA,"C", "D"), widths = c(0.5, 1, 1))
+
+figS6_panel
+
+ggplot2::ggsave(plot = figS6_panel, 
+                filename = paste0(ms_dir, "draft_figS6_hostrace_DGE.pdf"), 
+                width = 10, height = 4, dpi = 300)
+
+```
+
+
+## Figure S7
+
+Panel A is assembled from the saved output when generating the TOM networks. 
+
+### Panel B
+```{r, fig.height = 5.5, fig.width = 13}
+modules <- tar_read(moduleMembershipSumm) %>% 
+  ungroup() %>% 
+  dplyr::select(cluster, clusterCol, n_genes) %>% 
+  unique() %>% 
+  arrange(cluster)
+
+figS7_plotlist <- list()
+for (i in 1:dim(modules)[1]){
+  figS7_plotlist[[i]] <- tar_read(moduleMembershipSumm_plots)[[i]] +
+    labs(title = paste0(gsub("mod", "", modules$cluster[i]), " (",
+                        modules$clusterCol[i], ", ", 
+                        modules$n_genes[i], ")")) +
+    theme(axis.text.x = element_blank())
+}
+
+figS7_panelB <- ggpubr::annotate_figure(
+  ggarrange(plotlist = figS7_plotlist, 
+    nrow = 3,
+    ncol = 7, 
+    common.legend = T, 
+    legend = "right"),
+  bottom = text_grob("Treatment"), 
+  left = text_grob("Normalized expression", rot = 90))
+
+figS7_panelB
+
+ggplot2::ggsave(plot = figS7_panelB, 
+                filename = paste0(ms_dir, "draft_figS7_modules.pdf"), 
+                height = 5.5, width = 13)
+
+```
+
+## Figure S8
+
+```{r, fig.height = 9, fig.width = 13 }
+
+figS8_plotlist <- list()
+for (i in 1:length(tar_read(targetMods))){
+  figS8_plotlist[[i]] <- tar_read(targetMod_topgo_plots)[tar_read(targetMods)[i]][[1]][[1]] + theme(legend.position = "none")
+}
+
+
+figureS8_panel <- ggpubr::ggarrange(plotlist = figS8_plotlist,
+                                    ncol = 3, nrow = 3, labels = "AUTO",
+                                    align = "hv")
+
+figureS8_panel  
+
+ggplot2::ggsave(plot = figureS8_panel,
+                filename = paste0(ms_dir, "draft_figS8_moduleBPEnrichment.png"), 
+                 height = 9, width = 13, dpi = 300)
+```
+
+## Figure S9
+
+```{r, fig.height = 9, fig.width = 13 }
+
+figS9_plotlist <- list()
+for (i in 1:length(tar_read(targetMods))){
+  figS9_plotlist[[i]] <- tar_read(targetMod_topgo_plots)[tar_read(targetMods)[i]][[1]][[2]] + theme(legend.position = "none")
+}
+
+
+figureS9_panel <- ggpubr::ggarrange(plotlist = figS9_plotlist,
+                                    ncol = 3, nrow = 3, labels = "AUTO",
+                                    align = "hv")
+
+figureS9_panel  
+
+ggplot2::ggsave(plot = figureS9_panel,
+                filename = paste0(ms_dir, "draft_figS9_moduleMFEnrichment.png"), 
+                 height = 9, width = 13, dpi = 300)
+```
+
+
+## Fig S10
+
+```{r, fig.height = 6, fig.width = 8 }
+
+figureS10_panel <- tar_read(pi_D_panel)
+figureS10_panel
+ggplot2::ggsave(plot = figureS10_panel,
+                filename = paste0(ms_dir, "draft_figS10_pi_D_panels.png"), 
+                 height = 6, width = 8, dpi = 300)
+```
+
+## Fig S11
+
+```{r, fig.height =6, fig.width = 13}
+figureS11_panel <- ggpubr::ggarrange(
+  tar_read(H_vs_O_popgen_plots)[[1]] + 
+    theme(axis.title.x = element_blank()), 
+  tar_read(H_vs_O_popgen_plots)[[2]] + 
+    theme(axis.title.x = element_blank()), 
+  tar_read(H_vs_O_popgen_plots)[[3]] + 
+    labs(y = expression(Delta~pi)) + theme(axis.title.x = element_blank()),  
+  tar_read(H_vs_O_popgen_plots)[[4]] + 
+    labs(y = expression(Delta~"D")) + theme(axis.title.x = element_blank()),
+  tar_read(H_vs_O_popgen_plots)[[5]] + 
+    labs(y = expression(pi~"(CH)")) + theme(axis.title.x = element_blank()) + 
+    ylim(c(0, 0.035)),  
+  tar_read(H_vs_O_popgen_plots)[[6]] + 
+    labs(y = expression(pi~"(CO)")) + theme(axis.title.x = element_blank())+ 
+    ylim(c(0, 0.035)),  
+  tar_read(H_vs_O_popgen_plots)[[7]] + 
+    labs(y = "Tajima's D (CH)") + theme(axis.title.x = element_blank()) +
+    ylim(c(-2.5, 1)),   
+  tar_read(H_vs_O_popgen_plots)[[8]] + 
+    labs(y = "Tajima's D (CO)") + theme(axis.title.x = element_blank()) + 
+    ylim(c(-2.5, 1)), 
+  ncol = 4, nrow = 2, labels = "AUTO")
+
+ggplot2::ggsave(plot = figureS11_panel, 
+                filename = paste0(ms_dir, "draft_figS11_DE_popgen_H_v_O_panel.png"),
+                height =6, width = 13, dpi = 300)
+```
+
+## Fig S12
+
+```{r, fig.height = 6, fig.width = 13 }
+figureS12_panel <- ggpubr::ggarrange(
+  tar_read(HH_vs_OO_popgen_plots)[[1]] + 
+    theme(axis.title.x = element_blank()), 
+  tar_read(HH_vs_OO_popgen_plots)[[2]] + 
+    theme(axis.title.x = element_blank()), 
+  tar_read(HH_vs_OO_popgen_plots)[[3]] +
+    labs(y = expression(Delta~pi)) + theme(axis.title.x = element_blank()),  
+  tar_read(HH_vs_OO_popgen_plots)[[4]] + 
+    labs(y = expression(Delta~"D")) + theme(axis.title.x = element_blank()),
+  tar_read(HH_vs_OO_popgen_plots)[[5]] + 
+    labs(y = expression(pi~"(CH)")) + theme(axis.title.x = element_blank()) +
+    ylim(c(0, 0.035)),  
+  tar_read(HH_vs_OO_popgen_plots)[[6]] +
+    labs(y = expression(pi~"(CO)")) + theme(axis.title.x = element_blank())+ 
+    ylim(c(0, 0.035)),  
+  tar_read(HH_vs_OO_popgen_plots)[[7]] +
+    labs(y = "Tajima's D (CH)") + theme(axis.title.x = element_blank()) + 
+    ylim(c(-2.5, 1)),   
+  tar_read(HH_vs_OO_popgen_plots)[[8]] + 
+    labs(y = "Tajima's D (CO)") + theme(axis.title.x = element_blank()) + 
+    ylim(c(-2.5, 1)), 
+  ncol = 4, nrow = 2, labels = "AUTO")
+figureS12_panel
+ggplot2::ggsave(plot = figureS12_panel, 
+                filename = paste0(ms_dir, "draft_figS12_DE_popgen_HH_v_OO_panel.png"),
+                height =6, width = 13, dpi = 300)
+
+```
+
+## Fig. S13 
+
+```{r, fig.height = 6, fig.width = 13 }
+figureS13_panel <- ggpubr::ggarrange(
+  tar_read(modules_popgen_plots)[[1]], 
+                   tar_read(modules_popgen_plots)[[2]], 
+                   tar_read(modules_popgen_plots)[[3]]+ 
+    labs(y = expression(Delta~pi)),
+                   tar_read(modules_popgen_plots)[[4]]+ 
+    labs(y = expression(Delta~"D")),
+                   tar_read(modules_popgen_plots)[[5]] + 
+    labs(y = expression(pi~"(CH)")) + ylim(c(0, 0.035)),  
+                   tar_read(modules_popgen_plots)[[6]] + 
+    labs(y = expression(pi~"(CO)")) + ylim(c(0, 0.035)),  
+                   tar_read(modules_popgen_plots)[[7]] + 
+    labs(y = "Tajima's D (CH)") + ylim(c(-2.5, 1)),   
+                   tar_read(modules_popgen_plots)[[8]] + 
+    labs(y = "Tajima's D (CO)") +  ylim(c(-2.5, 1)), 
+                                      ncol = 4, nrow = 2, labels = "AUTO")
+figureS13_panel
+ggplot2::ggsave(plot = figureS13_panel, 
+                filename = paste0(ms_dir, "draft_figS11_modules_popgen_panel.png"),
+                height = 6, width = 13, dpi = 300)
+```
+
+
+#### Supplementary Tables ####
+
+   inversion start: 693343006
+  inversion end: 797250185
+  1343/(797250185 - 693343006)
+  25175/1990026912
+  
+  
+
+# Additional lists and analyses
+
+```{r}
+
+DE_outliers_comb_mat <- ComplexHeatmap::make_comb_mat(list(`Up in H` = tar_read(tcon_deseq_results)$down$H_vs_O$geneID, 
+                                                           `Up in O` = tar_read(tcon_deseq_results)$up$H_vs_O$geneID, 
+                                                           `Up in HH` = tar_read(tcon_deseq_results)$down$HH_vs_OO$geneID, 
+                                                           `Up in OO` = tar_read(tcon_deseq_results)$up$HH_vs_OO$geneID, 
+                                                           Outliers = outlier_df$geneID)) 
+
+gene_name_func <- read_tsv("00_data/00_refs/braker.adj.UTR.mod.longIso_2line.arthropoda.emapper.annotations.gene_function.gene_name.mod.tsv", 
+                           col_names = c("geneID", "gene_function", "gene_name"))
+full_join(data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "10001"), comb = "10001", comb_name = "Out_H"),
+          data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "00101"), comb = "00101", comb_name = "Out_HH")) %>% 
+  full_join(data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "10101"), comb = "10101", comb_name = "Out_H_HH")) %>% 
+  full_join(data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "01001"), comb = "01001", comb_name = "Out_O")) %>% 
+  full_join(data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "00011"), comb = "00011", comb_name = "Out_OO")) %>% 
+  full_join(data.frame(geneID = ComplexHeatmap::extract_comb(DE_outliers_comb_mat, "01011"), comb = "01011", comb_name = "Out_O_OO")) %>% 
+  left_join(gene_name_func) %>% 
+  write_tsv("00_data/03_popgen_expression/Tcon_outlier_DE_overlap.tsv")
+```
+
+```{r}
+comps <- 10
+n_genes_all = 25175
+n_genes_expr = 11701
+
+both_outliers_hypergeom_test_all <- data.frame(values = eulerr::euler(list(both = tar_read(HH_OO_vs_H_O_both)$geneID, outliers =  outlier_df$geneID))$original.values) %>% 
+  rownames_to_column("overlap") %>% 
+  mutate(comp = "BOTH",
+         overlap = gsub("&","_", overlap)) %>% 
+  pivot_wider(id_cols = comp, names_from = overlap, values_from = values) %>% 
+  mutate(A_DE_outliers = both_outliers,
+         B_DE_notOutliers = both, 
+         C_notDE_outliers = outliers, 
+         D_notDE_notOutliers = n_genes_all - sum(A_DE_outliers, B_DE_notOutliers, C_notDE_outliers, na.rm = T),
+         OR = (A_DE_outliers*D_notDE_notOutliers)/ (B_DE_notOutliers*C_notDE_outliers),
+         q_DE_outliers = A_DE_outliers,
+         m_tot_outliers = A_DE_outliers + C_notDE_outliers,
+         n_not_outliers = n_genes_all - m_tot_outliers,
+         k_tot_DE = A_DE_outliers + B_DE_notOutliers, 
+         phyper = phyper(q_DE_outliers, m_tot_outliers, n_not_outliers,k_tot_DE, lower.tail = F)[[1]])
+
+both_outliers_hypergeom_test_expr <- data.frame(values = eulerr::euler(list(both = tar_read(HH_OO_vs_H_O_both)$geneID, outliers =  outlier_df$geneID[outlier_df$geneID %in% tar_read(tcon_expr_genes)]))$original.values) %>% 
+  rownames_to_column("overlap") %>% 
+  mutate(comp = "BOTH",
+         overlap = gsub("&","_", overlap)) %>% 
+  pivot_wider(id_cols = comp, names_from = overlap, values_from = values) %>% 
+  mutate(A_DE_outliers = both_outliers,
+         B_DE_notOutliers = both, 
+         C_notDE_outliers = outliers, 
+         D_notDE_notOutliers = n_genes_expr - sum(A_DE_outliers, B_DE_notOutliers, C_notDE_outliers, na.rm = T),
+         OR = (A_DE_outliers*D_notDE_notOutliers)/ (B_DE_notOutliers*C_notDE_outliers),
+         q_DE_outliers = A_DE_outliers,
+         m_tot_outliers = A_DE_outliers + C_notDE_outliers,
+         n_not_outliers = n_genes_expr - m_tot_outliers,
+         k_tot_DE = A_DE_outliers + B_DE_notOutliers, 
+         phyper = phyper(q_DE_outliers, m_tot_outliers, n_not_outliers,k_tot_DE, lower.tail = F)[[1]])
+
+
+
+both_inversion_hypergeom_test_all <- data.frame(values = eulerr::euler(list(both = tar_read(HH_OO_vs_H_O_both)$geneID, outliers =  unique(tar_read(inversion_genes)$geneID)))$original.values) %>% 
+  rownames_to_column("overlap") %>% 
+  mutate(comp = "BOTH",
+         overlap = gsub("&","_", overlap)) %>% 
+  pivot_wider(id_cols = comp, names_from = overlap, values_from = values) %>% 
+  mutate(A_DE_outliers = both_outliers,
+         B_DE_notOutliers = both, 
+         C_notDE_outliers = outliers, 
+         D_notDE_notOutliers = n_genes_all - sum(A_DE_outliers, B_DE_notOutliers, C_notDE_outliers, na.rm = T),
+         OR = (A_DE_outliers*D_notDE_notOutliers)/ (B_DE_notOutliers*C_notDE_outliers),
+         q_DE_outliers = A_DE_outliers,
+         m_tot_outliers = A_DE_outliers + C_notDE_outliers,
+         n_not_outliers = n_genes_all - m_tot_outliers,
+         k_tot_DE = A_DE_outliers + B_DE_notOutliers, 
+         phyper = phyper(q_DE_outliers, m_tot_outliers, n_not_outliers,k_tot_DE, lower.tail = F)[[1]])
+
+both_inversion_hypergeom_test_expr <- data.frame(values = eulerr::euler(list(both = tar_read(HH_OO_vs_H_O_both)$geneID, outliers =  unique(tar_read(inversion_genes)$geneID)[unique(tar_read(inversion_genes)$geneID) %in% tar_read(tcon_expr_genes)]))$original.values) %>% 
+  rownames_to_column("overlap") %>% 
+  mutate(comp = "BOTH",
+         overlap = gsub("&","_", overlap)) %>% 
+  pivot_wider(id_cols = comp, names_from = overlap, values_from = values) %>% 
+  mutate(A_DE_outliers = both_outliers,
+         B_DE_notOutliers = both, 
+         C_notDE_outliers = outliers, 
+         D_notDE_notOutliers = n_genes_expr - sum(A_DE_outliers, B_DE_notOutliers, C_notDE_outliers, na.rm = T),
+         OR = (A_DE_outliers*D_notDE_notOutliers)/ (B_DE_notOutliers*C_notDE_outliers),
+         q_DE_outliers = A_DE_outliers,
+         m_tot_outliers = A_DE_outliers + C_notDE_outliers,
+         n_not_outliers = n_genes_expr - m_tot_outliers,
+         k_tot_DE = A_DE_outliers + B_DE_notOutliers, 
+         phyper = phyper(q_DE_outliers, m_tot_outliers, n_not_outliers,k_tot_DE, lower.tail = F)[[1]])
+
+rbind(both_inversion_hypergeom_test_all, both_inversion_hypergeom_test_expr,
+      both_outliers_hypergeom_test_all, both_outliers_hypergeom_test_expr) %>% 
+  full_join(tar_read(DE_inversion_all_hypergeom_test)) %>% 
+  full_join(tar_read(DE_inversion_expr_hypergeom_test)) %>% 
+  full_join(tar_read(DE_outliers_all_hypergeom_test)) %>% 
+  full_join(tar_read(DE_outliers_expr_hypergeom_test)) %>% 
+  filter(comp %nin% c("H_vs_HH", "H_vs_HO", "O_vs_OO", "O_vs_OH")) %>% 
+  mutate(padj_all_tests = p.adjust(phyper, method = "BH", n = 24)) %>% 
+  write_tsv("00_data/03_popgen_expression/Tcon_DE_hypergeom_tests_all.tsv")
+
+
+```
+
+
