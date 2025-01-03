@@ -96,9 +96,19 @@ list(
   tar_target(HH_OO_vs_H_O_both, read_tsv("00_data/02_DEgenes/Tcon_H_vs_O_HH_vs_OO_both_DE.tsv")),
   tar_target(tcon_topgo_HH_OO_vs_H_O_both, topgo_targeted(HH_OO_vs_H_O_both, GO_path, "HH_OO_vs_H_O_both")),
   tar_target(tcon_topgo_plots_HH_OO_vs_H_O_both, plot_topgo_targeted(tcon_topgo_HH_OO_vs_H_O_both, "gold", "HH_OO_vs_H_O_both")),
+  
+  tar_target(HO_OH_vs_H_O_both, read_tsv("00_data/02_DEgenes/Tcon_H_vs_O_HO_vs_OH_both_DE.tsv")),
+  tar_target(tcon_topgo_HO_OH_vs_H_O_both, topgo_targeted(HO_OH_vs_H_O_both, GO_path, "HO_OH_vs_H_O_both")),
+  tar_target(tcon_topgo_plots_HO_OH_vs_H_O_both, plot_topgo_targeted(tcon_topgo_HO_OH_vs_H_O_both, "gold", "HO_OH_vs_H_O_both")),
+  
+  tar_target(HO_OH_vs_HH_OO_both, read_tsv("00_data/02_DEgenes/Tcon_HH_vs_OO_HO_vs_OH_both_DE.tsv")),
+  tar_target(tcon_topgo_HO_OH_vs_HH_OO_both, topgo_targeted(HO_OH_vs_HH_OO_both, GO_path, "HO_OH_vs_HH_OO_both")),
+  tar_target(tcon_topgo_plots_HO_OH_vs_HH_OO_both, plot_topgo_targeted(tcon_topgo_HO_OH_vs_HH_OO_both, "gold", "HO_OH_vs_HH_OO_both")),
+  
   tar_target(H_OH_vs_H_O_both, read_tsv("00_data/02_DEgenes/Tcon_H_vs_O_H_vs_HO_both_DE.tsv")),
   tar_target(tcon_topgo_H_OH_vs_H_O_both, topgo_targeted(H_OH_vs_H_O_both, GO_path, "H_OH_vs_H_O_both")),
   tar_target(tcon_topgo_plots_H_OH_vs_H_O_both, plot_topgo_targeted(tcon_topgo_H_OH_vs_H_O_both, "gold", "H_OH_vs_H_O_both")),
+  
   tar_target(stringInput, save_genesets(tcon_deseq_results)),
   
   #### Save plots ####
@@ -148,7 +158,9 @@ list(
   tar_target(moduleMembershipSumm, summarize_moduleMembership(moduleMembership)),
   tar_target(moduleMembershipSumm_plots, plot_moduleMembershipSumm(moduleMembershipSumm,
                                                                    cf_pal)),
-   tar_target(targetMods, c("mod00", "mod01", "mod06", "mod16", "mod15", "mod18", "mod19", "mod20", "mod04")),
+  tar_target(moduleEigengenes_plots, plot_moduleEigengenes(datTraits, modules,
+                                                                   cf_pal)),
+  tar_target(targetMods, c("mod00", "mod01", "mod06", "mod16", "mod15", "mod18", "mod19", "mod20", "mod04")),
   tar_target(targetMods_pal, c(cf_pal[1], cf_pal[1], cf_pal[1], cf_pal[3], cf_pal[1], "#f05039", "#f05039", cf_pal[4], cf_pal[4])),
   tar_target(targetMod_genes, extract_mod_genes(moduleMembership, targetMods)), 
   tar_target(targetMod_topgo, topgo_modList(targetMod_genes, GO_path, targetMods)),
@@ -208,7 +220,9 @@ list(
                                                      "\u0394D" = tajD_diff_outliers))),
   tar_target(outlier_upset_plot, upset_outliers(outlier_comb_mat)),
   tar_target(bed_path, "00_data/00_refs/braker.adj.UTR.mod.longIso.mod.slop2kb.50kb.50kb.mod.bed"),
-  tar_target(bed, get_bed(bed_path)),
+  tar_target(bed, get_bed(bed_path)),  
+  tar_target(gene_path, "00_data/00_refs/braker.adj.UTR.mod.longIso_2line.default.emapper.annotations.gene_function.gene_name.tsv"),
+  tar_target(gene_names, read_tsv(gene_path, col_names = c("geneID", "geneFunction", "geneName"))),
   tar_target(outlier_genes_comb_list, get_outlier_genes_comb(outlier_comb_mat, bed, contig_master)),
   tar_target(tcon_topgo_outliers, topgo_outliers(outlier_genes_comb_list[1:4], GO_path)),
   tar_target(tcon_topgo_outlier_plots, plot_topgo_outliers(tcon_topgo_outliers)),
